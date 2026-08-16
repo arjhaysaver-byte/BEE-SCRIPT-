@@ -1,0 +1,182 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Create ScreenGui Container
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BeeGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = PlayerGui
+
+-- 1. BEE Trigger Button
+local beeButton = Instance.new("TextButton")
+beeButton.Name = "BeeButton"
+beeButton.Size = UDim2.new(0, 160, 0, 50)
+beeButton.Position = UDim2.new(0.5, -80, 0.85, -25)
+beeButton.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+beeButton.Text = "🐝 BEE"
+beeButton.TextColor3 = Color3.fromRGB(255, 230, 0)
+beeButton.TextSize = 22
+beeButton.Font = Enum.Font.GothamBold
+beeButton.Parent = screenGui
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 12)
+buttonCorner.Parent = beeButton
+
+local buttonStroke = Instance.new("UIStroke")
+buttonStroke.Color = Color3.fromRGB(255, 230, 0)
+buttonStroke.Thickness = 2
+buttonStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+buttonStroke.Parent = beeButton
+
+-- 2. Middle Screen Notification Frame
+local notifFrame = Instance.new("Frame")
+notifFrame.Name = "NotificationFrame"
+notifFrame.Size = UDim2.new(0, 360, 0, 180)
+notifFrame.Position = UDim2.new(0.5, -180, 0.5, -90)
+notifFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+notifFrame.Visible = false
+notifFrame.Parent = screenGui
+
+local frameCorner = Instance.new("UICorner")
+frameCorner.CornerRadius = UDim.new(0, 16)
+frameCorner.Parent = notifFrame
+
+local frameStroke = Instance.new("UIStroke")
+frameStroke.Color = Color3.fromRGB(255, 230, 0)
+frameStroke.Thickness = 3
+frameStroke.Parent = notifFrame
+
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 0)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 230, 0)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(10, 10, 10))
+})
+gradient.Rotation = 45
+gradient.Parent = notifFrame
+
+local notifText = Instance.new("TextLabel")
+notifText.Name = "NotificationText"
+notifText.Size = UDim2.new(1, -20, 0, 80)
+notifText.Position = UDim2.new(0, 10, 0, 15)
+notifText.BackgroundTransparency = 1
+notifText.Text = "You may now Used any script"
+notifText.TextColor3 = Color3.fromRGB(255, 235, 50)
+notifText.TextSize = 20
+notifText.Font = Enum.Font.GothamBlack
+notifText.TextWrapped = true
+notifText.Parent = notifFrame
+
+local textStroke = Instance.new("UIStroke")
+textStroke.Color = Color3.fromRGB(255, 255, 150)
+textStroke.Thickness = 2
+textStroke.Parent = notifText
+
+local closeBtn = Instance.new("TextButton")
+closeBtn.Name = "CloseButton"
+closeBtn.Size = UDim2.new(0, 100, 0, 36)
+closeBtn.Position = UDim2.new(0.5, -50, 1, -45)
+closeBtn.BackgroundColor3 = Color3.fromRGB(255, 230, 0)
+closeBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+closeBtn.Text = "OK"
+closeBtn.TextSize = 16
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.Parent = notifFrame
+
+local closeCorner = Instance.new("UICorner")
+closeCorner.CornerRadius = UDim.new(0, 8)
+closeCorner.Parent = closeBtn
+
+-- 3. BEE Welcome Banner (Appears After Notification)
+local beeWelcomeFrame = Instance.new("Frame")
+beeWelcomeFrame.Name = "BeeWelcomeFrame"
+beeWelcomeFrame.Size = UDim2.new(0, 380, 0, 240)
+beeWelcomeFrame.Position = UDim2.new(0.5, -190, 0.5, -120)
+beeWelcomeFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+beeWelcomeFrame.Visible = false
+beeWelcomeFrame.Parent = screenGui
+
+local beeWelcomeCorner = Instance.new("UICorner")
+beeWelcomeCorner.CornerRadius = UDim.new(0, 20)
+beeWelcomeCorner.Parent = beeWelcomeFrame
+
+local beeWelcomeStroke = Instance.new("UIStroke")
+beeWelcomeStroke.Color = Color3.fromRGB(255, 230, 0)
+beeWelcomeStroke.Thickness = 3
+beeWelcomeStroke.Parent = beeWelcomeFrame
+
+-- Big Yellow Bee Icon
+local bigBeeIcon = Instance.new("TextLabel")
+bigBeeIcon.Name = "BigBeeIcon"
+bigBeeIcon.Size = UDim2.new(1, 0, 0, 90)
+bigBeeIcon.Position = UDim2.new(0, 0, 0, 15)
+bigBeeIcon.BackgroundTransparency = 1
+bigBeeIcon.Text = "🐝"
+bigBeeIcon.TextSize = 75
+bigBeeIcon.Parent = beeWelcomeFrame
+
+-- Neon Welcome Text
+local welcomeText = Instance.new("TextLabel")
+welcomeText.Name = "WelcomeText"
+welcomeText.Size = UDim2.new(1, -20, 0, 60)
+welcomeText.Position = UDim2.new(0, 10, 0, 110)
+welcomeText.BackgroundTransparency = 1
+welcomeText.Text = "Welcome to bubuyog Ni BEE🐝"
+welcomeText.TextColor3 = Color3.fromRGB(255, 230, 0)
+welcomeText.TextSize = 22
+welcomeText.Font = Enum.Font.GothamBlack
+welcomeText.TextWrapped = true
+welcomeText.Parent = beeWelcomeFrame
+
+local welcomeTextStroke = Instance.new("UIStroke")
+welcomeTextStroke.Color = Color3.fromRGB(255, 255, 180)
+welcomeTextStroke.Thickness = 2
+welcomeTextStroke.Parent = welcomeText
+
+-- Dismiss Button for Welcome Screen
+local dismissBtn = Instance.new("TextButton")
+dismissBtn.Name = "DismissButton"
+dismissBtn.Size = UDim2.new(0, 120, 0, 36)
+dismissBtn.Position = UDim2.new(0.5, -60, 1, -45)
+dismissBtn.BackgroundColor3 = Color3.fromRGB(255, 230, 0)
+dismissBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+dismissBtn.Text = "CONTINUE"
+dismissBtn.TextSize = 14
+dismissBtn.Font = Enum.Font.GothamBold
+dismissBtn.Parent = beeWelcomeFrame
+
+local dismissCorner = Instance.new("UICorner")
+dismissCorner.CornerRadius = UDim.new(0, 8)
+dismissCorner.Parent = dismissBtn
+
+-- Event Connections
+beeButton.MouseButton1Click:Connect(function()
+    beeWelcomeFrame.Visible = false
+    notifFrame.Visible = true
+end)
+
+closeBtn.MouseButton1Click:Connect(function()
+    notifFrame.Visible = false
+    
+    -- Show Big BEE Welcome screen after clicking OK
+    beeWelcomeFrame.Size = UDim2.new(0, 0, 0, 0)
+    beeWelcomeFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    beeWelcomeFrame.Visible = true
+    
+    -- Pop-in animation effect
+    local tweenInfo = TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    local tween = TweenService:Create(beeWelcomeFrame, tweenInfo, {
+        Size = UDim2.new(0, 380, 0, 240),
+        Position = UDim2.new(0.5, -190, 0.5, -120)
+    })
+    tween:Play()
+end)
+
+dismissBtn.MouseButton1Click:Connect(function()
+    beeWelcomeFrame.Visible = false
+end)
+
+loadstring(game:HttpGet("https://raw.githubusercontent.com/SmokeTY/Hidden-Scripts/main/Chronix%20Hub"))()
