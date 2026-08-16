@@ -1,0 +1,409 @@
+-- Services
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local SoundService = game:GetService("SoundService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Variables
+local savedCFrame = nil
+local guiVisible = true
+local currentBeeModel = nil
+local isTeleporting = false
+
+-- Helper Function: UI Animation
+local function animate(object, properties, time)
+	TweenService:Create(object, TweenInfo.new(time or 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), properties):Play()
+end
+
+-- Helper Function: Make Tool Sticky
+local function makeToolSticky(character)
+	local tool = character:FindFirstChildOfClass("Tool")
+	if tool and tool:FindFirstChild("Handle") then
+		local handle = tool.Handle
+		handle.Massless = true
+		handle.CanCollide = false
+		
+		-- Create welding/attachment safety if physics interfere
+		if not handle:FindFirstChild("BeeStickyAttachment") then
+			local att0 = Instance.new("Attachment")
+			att0.Name = "BeeStickyAttachment"
+			att0.Parent = handle
+
+			local rightHand = character:FindFirstChild("RightHand") or character:FindFirstChild("Right Arm")
+			if rightHand then
+				local att1 = Instance.new("Attachment")
+				att1.Name = "BeeStickyHandAttachment"
+				att1.Parent = rightHand
+
+				local alignPos = Instance.new("AlignPosition")
+				alignPos.Name = "StickyPos"
+				alignPos.Mode = Enum.PositionAlignmentMode.TwoAttachment
+				alignPos.Attachment0 = att0
+				alignPos.Attachment1 = att1
+				alignPos.MaxForce = 999999
+				alignPos.Responsiveness = 200
+				alignPos.Parent = handle
+			end
+		end
+	end
+end
+
+-- Helper Function: Spawn Teleport Visual Burst
+local function playTeleportEffect(cframe)
+	local part = Instance.new("Part")
+	part.Size = Vector3.new(1, 1, 1)
+	part.CFrame = cframe
+	part.Transparency = 1
+	part.Anchored = true
+	part.CanCollide = false
+	part.Parent = workspace
+
+	local attachment = Instance.new("Attachment", part)
+
+	local particles = Instance.new("ParticleEmitter")
+	particles.Texture = "rbxassetid://243660364"
+	particles.Color = ColorSequence.new(Color3.fromRGB(255, 220, 0))
+	particles.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 3),
+		NumberSequenceKeypoint.new(1, 0)
+	})
+	particles.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(1, 1)
+	})
+	particles.Lifetime = NumberRange.new(0.5, 0.8)
+	particles.Rate = 100
+	particles.Speed = NumberRange.new(10, 20)
+	particles.SpreadAngle = Vector2.new(180, 180)
+	particles.Parent = attachment
+
+	particles:Emit(50)
+
+	local sound = Instance.new("Sound")
+	sound.SoundId = "rbxassetid://2865227271"
+	sound.Volume = 1
+	sound.Parent = SoundService
+	sound:Play()
+
+	game:GetService("Debris"):AddItem(part, 1.5)
+	game:GetService("Debris"):AddItem(sound, 2)
+end
+
+-- Helper Function: Create 3D Visual Bee Marker
+local function spawnBeeVisual(cframe)
+	if currentBeeModel then
+		currentBeeModel:Destroy()
+	end
+
+	local beeModel = Instance.new("Model")
+	beeModel.Name = "BeeSaveMarker"
+
+	local body = Instance.new("Part")
+	body.Name = "Body"
+	body.Size = Vector3.new(1.8, 1.8, 2.5)
+	body.Shape = Enum.PartType.Ball
+	body.Color = Color3.fromRGB(255, 200, 0)
+	body.Material = Enum.Material.Neon
+	body.Anchored = true
+	body.CanCollide = false
+	body.CFrame = cframe * CFrame.new(0, 3.5, 0)
+	body.Parent = beeModel
+
+	for i = -1, 1, 2 do
+		local stripe = Instance.new("Part")
+		stripe.Size = Vector3.new(1.85, 1.85, 0.4)
+		stripe.Shape = Enum.PartType.Cylinder
+		stripe.Color = Color3.fromRGB(20, 20, 20)
+		stripe.Material = Enum.Material.SmoothPlastic
+		stripe.Anchored = true
+		stripe.CanCollide = false
+		stripe.CFrame = body.CFrame * CFrame.new(0, 0, i * 0.5) * CFrame.Angles(0, math.rad(90), 0)
+		stripe.Parent = beeModel
+	end
+
+	local function createWing(xOffset)
+		local wing = Instance.new("Part")
+		wing.Size = Vector3.new(1.2, 0.1, 1.8)
+		wing.Color = Color3.fromRGB(220, 245, 255)
+		wing.Material = Enum.Material.Glass
+		wing.Transparency = 0.3
+		wing.Anchored = true
+		wing.CanCollide = false
+		wing.CFrame = body.CFrame * CFrame.new(xOffset, 0.9, 0) * CFrame.Angles(math.rad(15), 0, math.rad(xOffset > 0 and 20 or -20))
+		wing.Parent = beeModel
+	end
+	createWing(0.9)
+	createWing(-0.9)
+
+	local eyeLeft = Instance.new("Part")
+	eyeLeft.Size = Vector3.new(0.4, 0.4, 0.4)
+	eyeLeft.Shape = Enum.PartType.Ball
+	eyeLeft.Color = Color3.fromRGB(10, 10, 10)
+	eyeLeft.Anchored = true
+	eyeLeft.CanCollide = false
+	eyeLeft.CFrame = body.CFrame * CFrame.new(0.5, 0.3, -1.1)
+	eyeLeft.Parent = beeModel
+
+	local eyeRight = eyeLeft:Clone()
+	eyeRight.CFrame = body.CFrame * CFrame.new(-0.5, 0.3, -1.1)
+	eyeRight.Parent = beeModel
+
+	beeModel.PrimaryPart = body
+	beeModel.Parent = workspace
+	currentBeeModel = beeModel
+
+	task.spawn(function()
+		local startTime = tick()
+		local baseCFrame = body.CFrame
+		while beeModel and beeModel.Parent do
+			local elapsed = tick() - startTime
+			local bobbing = math.sin(elapsed * 4) * 0.5
+			local rotation = elapsed * 2
+			
+			local newCFrame = baseCFrame * CFrame.new(0, bobbing, 0) * CFrame.Angles(0, rotation, 0)
+			body.CFrame = newCFrame
+			eyeLeft.CFrame = newCFrame * CFrame.new(0.5, 0.3, -1.1)
+			eyeRight.CFrame = newCFrame * CFrame.new(-0.5, 0.3, -1.1)
+			
+			task.wait()
+		end
+	end)
+end
+
+-- ScreenGui Setup
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "BeeHubPro"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- Main Frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "MainFrame"
+mainFrame.Size = UDim2.new(0, 320, 0, 240)
+mainFrame.Position = UDim2.new(0.5, -160, 0.5, -120)
+mainFrame.BackgroundColor3 = Color3.fromRGB(18, 18, 20)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.ClipsDescendants = true
+mainFrame.Parent = screenGui
+
+local mainCorner = Instance.new("UICorner")
+mainCorner.CornerRadius = UDim.new(0, 12)
+mainCorner.Parent = mainFrame
+
+local mainUIStroke = Instance.new("UIStroke")
+mainUIStroke.Color = Color3.fromRGB(255, 200, 0)
+mainUIStroke.Thickness = 2
+mainUIStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+mainUIStroke.Parent = mainFrame
+
+local uiGradient = Instance.new("UIGradient")
+uiGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(25, 22, 10)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 12, 14))
+})
+uiGradient.Rotation = 45
+uiGradient.Parent = mainFrame
+
+-- Header Bar
+local header = Instance.new("Frame")
+header.Name = "Header"
+header.Size = UDim2.new(1, 0, 0, 45)
+header.BackgroundColor3 = Color3.fromRGB(255, 190, 0)
+header.BorderSizePixel = 0
+header.Parent = mainFrame
+
+local headerCorner = Instance.new("UICorner")
+headerCorner.CornerRadius = UDim.new(0, 12)
+headerCorner.Parent = header
+
+local headerFix = Instance.new("Frame")
+headerFix.Size = UDim2.new(1, 0, 0, 10)
+headerFix.Position = UDim2.new(0, 0, 1, -10)
+headerFix.BackgroundColor3 = Color3.fromRGB(255, 190, 0)
+headerFix.BorderSizePixel = 0
+headerFix.Parent = header
+
+-- Title
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, -20, 1, 0)
+titleLabel.Position = UDim2.new(0, 12, 0, 0)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "BEE HUB 🐝 SCRIPTS"
+titleLabel.TextColor3 = Color3.fromRGB(15, 15, 15)
+titleLabel.TextSize = 18
+titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+titleLabel.Font = Enum.Font.FredokaOne
+titleLabel.Parent = header
+
+-- Status
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, 0, 0, 20)
+statusLabel.Position = UDim2.new(0, 0, 0, 50)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "STATUS: READY"
+statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+statusLabel.TextSize = 11
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.Parent = mainFrame
+
+-- Button Creator
+local function createButton(name, text, position)
+	local btn = Instance.new("TextButton")
+	btn.Name = name
+	btn.Size = UDim2.new(0.88, 0, 0, 42)
+	btn.Position = position
+	btn.BackgroundColor3 = Color3.fromRGB(30, 28, 20)
+	btn.Text = text
+	btn.TextColor3 = Color3.fromRGB(255, 220, 100)
+	btn.TextSize = 14
+	btn.Font = Enum.Font.GothamBold
+	btn.AutoButtonColor = false
+	btn.Parent = mainFrame
+
+	local btnCorner = Instance.new("UICorner")
+	btnCorner.CornerRadius = UDim.new(0, 8)
+	btnCorner.Parent = btn
+
+	local btnStroke = Instance.new("UIStroke")
+	btnStroke.Color = Color3.fromRGB(255, 190, 0)
+	btnStroke.Thickness = 1
+	btnStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	btnStroke.Parent = btn
+
+	btn.MouseEnter:Connect(function()
+		animate(btn, {BackgroundColor3 = Color3.fromRGB(255, 190, 0), TextColor3 = Color3.fromRGB(15, 15, 15)}, 0.15)
+	end)
+	
+	btn.MouseLeave:Connect(function()
+		animate(btn, {BackgroundColor3 = Color3.fromRGB(30, 28, 20), TextColor3 = Color3.fromRGB(255, 220, 100)}, 0.15)
+	end)
+
+	return btn
+end
+
+local saveButton = createButton("SaveBtn", "📍 SAVE POSITION", UDim2.new(0.06, 0, 0.35, 0))
+local tpButton = createButton("TPBtn", "⚡ TELEPORT TO SAVED", UDim2.new(0.06, 0, 0.60, 0))
+
+local footerLabel = Instance.new("TextLabel")
+footerLabel.Size = UDim2.new(1, 0, 0, 20)
+footerLabel.Position = UDim2.new(0, 0, 0, 215)
+footerLabel.BackgroundTransparency = 1
+footerLabel.Text = "Press [K] to Toggle UI"
+footerLabel.TextColor3 = Color3.fromRGB(120, 120, 120)
+footerLabel.TextSize = 10
+footerLabel.Font = Enum.Font.Gotham
+footerLabel.Parent = mainFrame
+
+-- Save Position Action
+saveButton.MouseButton1Click:Connect(function()
+	local character = player.Character
+	if character and character:FindFirstChild("HumanoidRootPart") then
+		savedCFrame = character.HumanoidRootPart.CFrame
+		
+		makeToolSticky(character)
+		spawnBeeVisual(savedCFrame)
+		
+		StarterGui:SetCore("SendNotification", {
+			Title = "BEE HUB 🐝",
+			Text = "Ang bubuyog ay naka save na🐝",
+			Duration = 4
+		})
+
+		statusLabel.Text = "STATUS: LOCATION SAVED!"
+		statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+		
+		task.delay(2, function()
+			statusLabel.Text = "STATUS: READY"
+			statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+		end)
+	end
+end)
+
+-- Clear/Smooth Teleport Action
+tpButton.MouseButton1Click:Connect(function()
+	if isTeleporting then return end
+	
+	local character = player.Character
+	local hrp = character and character:FindFirstChild("HumanoidRootPart")
+	
+	if savedCFrame and hrp then
+		isTeleporting = true
+		
+		makeToolSticky(character)
+		playTeleportEffect(hrp.CFrame)
+
+		-- Temporarily turn off collisions on character parts for zero glitching/clipping
+		for _, part in ipairs(character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
+			end
+		end
+
+		local startCFrame = hrp.CFrame
+		local duration = 0.8
+		local elapsed = 0
+
+		-- Frame-rate independent smooth interpolation (RenderStepped)
+		local connection
+		connection = RunService.RenderStepped:Connect(function(deltaTime)
+			elapsed = elapsed + deltaTime
+			local alpha = math.clamp(elapsed / duration, 0, 1)
+			
+			-- Smooth cubic easing calculation
+			local smoothAlpha = math.sin(alpha * math.pi / 2)
+			
+			hrp.CFrame = startCFrame:Lerp(savedCFrame, smoothAlpha)
+			
+			if alpha >= 1 then
+				connection:Disconnect()
+				
+				-- Restore normal physics
+				for _, part in ipairs(character:GetDescendants()) do
+					if part:IsA("BasePart") and part.Name == "HumanoidRootPart" then
+						part.CanCollide = true
+					end
+				end
+				
+				isTeleporting = false
+				playTeleportEffect(savedCFrame)
+
+				StarterGui:SetCore("SendNotification", {
+					Title = "BEE HUB 🐝",
+					Text = "Ang Bubuyog ay muling bumalik🐝",
+					Duration = 4
+				})
+
+				statusLabel.Text = "STATUS: TELEPORTED!"
+				statusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+				
+				task.delay(2, function()
+					statusLabel.Text = "STATUS: READY"
+					statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+				end)
+			end
+		end)
+	else
+		statusLabel.Text = "STATUS: NO SAVED POSITION!"
+		statusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+		
+		task.delay(2, function()
+			statusLabel.Text = "STATUS: READY"
+			statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+		end)
+	end
+end)
+
+-- Toggle UI Keybind (K)
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if not gameProcessed and input.KeyCode == Enum.KeyCode.K then
+		guiVisible = not guiVisible
+		mainFrame.Visible = guiVisible
+	end
+end)
